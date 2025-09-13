@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>IMAP → Telegram Forwarder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+  <div class="max-w-xl mx-auto space-y-6">
+    <h1 class="text-2xl font-bold">IMAP → Telegram Forwarder</h1>
+    <form id="configForm" class="bg-white shadow p-4 rounded-xl space-y-4">
+      <h2 class="text-lg font-semibold">Конфигурация</h2>
+      <div>
+        <label class="block text-sm">IMAP host</label>
+        <input name="imap_host" value="imap-mail.outlook.com" class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label class="block text-sm">IMAP port</label>
+        <input type="number" name="imap_port" value="993" class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label class="block text-sm">Email user</label>
+        <input name="email_user" class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label class="block text-sm">Email password / App password</label>
+        <input type="password" name="email_pass" class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label class="block text-sm">Telegram Bot Token</label>
+        <input name="telegram_bot_token" class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label class="block text-sm">Telegram Chat ID</label>
+        <input name="telegram_chat_id" class="w-full border rounded p-2">
+        <p class="text-xs text-gray-500">
+          Узнать chat_id можно через
+          <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code>
+        </p>
+      </div>
+      <div>
+        <label class="block text-sm">Poll interval (сек)</label>
+        <input type="number" name="poll_interval" value="30" class="w-full border rounded p-2">
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+        Сохранить и запустить
+      </button>
+    </form>
+    <div class="bg-white shadow p-4 rounded-xl space-y-4">
+      <h2 class="text-lg font-semibold">Управление</h2>
+      <div class="flex gap-2">
+        <button id="startBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Старт</button>
+        <button id="stopBtn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Стоп</button>
+        <button id="statusBtn" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">Статус</button>
+      </div>
+      <pre id="statusBox" class="bg-gray-100 p-2 rounded text-sm">Нет данных</pre>
+    </div>
+  </div>
+
+  <script>
+    async function updateStatus() {
+      const res = await fetch("/status");
+      const data = await res.json();
+      document.getElementById("statusBox").textContent = JSON.stringify(data, null, 2);
+    }
+
+    document.getElementById("configForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const config = Object.fromEntries(formData.entries());
+      config.imap_port = Number(config.imap_port);
+      config.poll_interval = Number(config.poll_interval);
+      await fetch("/configure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      updateStatus();
+    });
+
+    document.getElementById("startBtn").addEventListener("click", async () => {
+      await fetch("/start", { method: "POST" });
+      updateStatus();
+    });
+
+    document.getElementById("stopBtn").addEventListener("click", async () => {
+      await fetch("/stop", { method: "POST" });
+      updateStatus();
+    });
+
+    document.getElementById("statusBtn").addEventListener("click", updateStatus);
+    updateStatus();
+  </script>
+</body>
+</html>
