@@ -1,8 +1,13 @@
 import html
+from email.header import decode_header
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from email.message import Message
 from typing import Optional
+
+logger = logging.getLogger("imap-telegram-forwarder:parse")
+logger.setLevel(logging.ERROR)
 
 
 def extract_text_from_email(msg: Message) -> str:
@@ -73,23 +78,22 @@ def make_telegram_text(msg_obj: Message) -> Optional[str]:
     date = msg_obj.get("Date", "")
     body = extract_text_from_email(msg_obj)
     preview = body.strip().splitlines()
+
     if preview:
         preview_text = "\n".join(preview[:10])
         if len(preview_text) > 600:
             preview_text = preview_text[:600] + "…"
     else:
         preview_text = "(no text body)"
-    # text = (f"<b>{escape_html(subj)}</b>\n"
-    #         f"From: {escape_html(frm)}\n"
-    #         f"Date: {escape_html(date)}\n"
-    #         f"\n"
-    #         f"{escape_html(preview_text)}")
+
     escaped_date = escape_html(date)
     parsed_date = parse_email_date(escaped_date)
+
     if datetime.now(timezone.utc) - parsed_date > timedelta(days=5):
         return
-    text = (f"<b>{escape_html(subj)}</b>\n"
-            f"From: {re.match(r"<(.*)>", escape_html(frm))}\n"
+
+    text = (f"<b>{decode_subj(escape_html(subj))}</b>\n"
+            f"From: {re.search(r"&lt;(.*)&gt;", escape_html(frm)).group(1)}\n"
             f"Date: {parsed_date}\n"
             f"\n"
             f"{escape_html(preview_text)}")
@@ -100,9 +104,21 @@ def escape_html(s: str) -> str:
     return html.escape(s)
 
 
+def decode_subj(subj: str) -> str:
+    parts = decode_header(subj)
+    decoded_subj = ""
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            decoded_subj += part.decode(enc or "utf-8", errors="replace")
+        else:
+            decoded_subj += part
+
+    return decoded_subj
+
+
 def parse_email_date(date_string: str) -> datetime:
     try:
         split_date = date_string.split("(")[0].strip()
         return datetime.strptime(split_date, "%a, %d %b %Y %H:%M:%S %z")
     except ValueError as e:
-        print(date_string, e)
+        logger.error(e)
