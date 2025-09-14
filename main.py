@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from utils.config_utils import *
 from utils.imap_utils import *
@@ -101,6 +102,7 @@ async def status():
     return {"configured": config is not None, "worker_running": running, "config_file": CONFIG_FILE if config else None}
 
 
-@app.get("/")
+@app.get("/", status_code=200)
 def index():
-    return {"service": "imap-to-telegram-forwarder", "status": "ok", "docs": "/docs"}
+    return FileResponse("wwwroot/src/index.html")
+    # return {"service": "imap-to-telegram-forwarder", "status": "ok", "docs": "/docs"}
