@@ -20,9 +20,9 @@ app.mount("/ui", StaticFiles(directory="wwwroot/src", html=True), name="ui")
 @app.on_event("startup")
 async def startup_event():
     global config, _worker_task, _worker_stop_event
-    cfg = load_config_from_disk()
-    if cfg:
-        config = cfg
+    # cfg = load_config_from_disk()
+    if config:
+        # config = cfg
         if _worker_task is None:
             _worker_stop_event = asyncio.Event()
             _worker_task = asyncio.create_task(imap_worker_loop(config, _worker_stop_event))
@@ -52,7 +52,7 @@ async def configure(cfg: Config):
     global config, _worker_task, _worker_stop_event
     async with _lock:
         config = cfg
-        save_config_to_disk(cfg)
+        # save_config_to_disk(cfg)
         if _worker_task is None or _worker_task.done():
             _worker_stop_event = asyncio.Event()
             _worker_task = asyncio.create_task(imap_worker_loop(config, _worker_stop_event))
