@@ -40,32 +40,36 @@ def process_unseen_and_forward(cfg: Config, http_client: httpx.AsyncClient):
         m.logout()
         return
     try:
-        m.select()
-        typ, data = m.search(None, "UNSEEN")
-        if typ != "OK":
-            logger.warning("IMAP search failed: %s %s", typ, data)
-            return
-        uids = data[0].split()
-        if not uids:
-            logger.debug("No new messages.")
-            return
-        logger.info("Found %d unseen messages", len(uids))
-        for uid in uids:
-            try:
-                typ, msg_data = m.fetch(uid, '(RFC822)')
-                if typ != "OK":
-                    logger.warning("Failed to fetch UID %s: %s %s", uid, typ, msg_data)
-                    continue
-                raw = _extract_raw_from_fetch(msg_data)
-                msg_obj = email.message_from_bytes(raw)
-                text = make_telegram_text(msg_obj)
-                # Асинхронный клиент нельзя использовать в отдельном потоке, поэтому используем синхронный клиент
-                send_telegram_sync(cfg.telegram_bot_token, cfg.telegram_chat_id, text)
-                m.store(uid, '+FLAGS', '\\Seen')
-                logger.info("Forwarded UID %s to Telegram and marked as Seen",
-                            uid.decode() if isinstance(uid, bytes) else uid)
-            except Exception as e:
-                logger.exception("Error handling UID %s: %s", uid, e)
+        logger.info("IMAP login successed!")
+        while True:
+            m.select()
+            typ, data = m.search(None, "UNSEEN")
+            if typ != "OK":
+                logger.warning("IMAP search failed: %s %s", typ, data)
+                return
+            uids = data[0].split()[::-1]
+            if not uids:
+                logger.debug("No new messages.")
+                return
+            logger.info("Found %d unseen messages", len(uids))
+            for uid in uids:
+                try:
+                    typ, msg_data = m.fetch(uid, '(RFC822)')
+                    if typ != "OK":
+                        logger.warning("Failed to fetch UID %s: %s %s", uid, typ, msg_data)
+                        continue
+                    raw = _extract_raw_from_fetch(msg_data)
+                    msg_obj = email.message_from_bytes(raw)
+                    text = make_telegram_text(msg_obj)
+                    if (text is None) or (text == ""):
+                        break
+                    # Асинхронный клиент нельзя использовать в отдельном потоке, поэтому используем синхронный клиент
+                    send_telegram_sync(cfg.telegram_bot_token, cfg.telegram_chat_id, text)
+                    m.store(uid, '+FLAGS', '\\Seen')
+                    logger.info("Forwarded UID %s to Telegram and marked as Seen",
+                                uid.decode() if isinstance(uid, bytes) else uid)
+                except Exception as e:
+                    logger.exception("Error handling UID %s: %s", uid, e)
     finally:
         try:
             m.close()

@@ -83,6 +83,7 @@ async def stop_worker():
     global _worker_task, _worker_stop_event
     async with _lock:
         if _worker_stop_event is not None and not _worker_stop_event.is_set():
+            logger.info("Stopping worker")
             _worker_stop_event.set()
         if _worker_task:
             try:

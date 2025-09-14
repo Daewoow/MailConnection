@@ -1,6 +1,8 @@
-import re
-from email.message import Message
 import html
+import re
+from datetime import datetime, timedelta, timezone
+from email.message import Message
+from typing import Optional
 
 
 def extract_text_from_email(msg: Message) -> str:
@@ -60,7 +62,7 @@ def html_to_text(html_content: str) -> str:
     return text
 
 
-def make_telegram_text(msg_obj: Message) -> str:
+def make_telegram_text(msg_obj: Message) -> Optional[str]:
     """
     Форматирует текст в нужный телеграму
     :param msg_obj: сообщение начальное
@@ -77,9 +79,18 @@ def make_telegram_text(msg_obj: Message) -> str:
             preview_text = preview_text[:600] + "…"
     else:
         preview_text = "(no text body)"
+    # text = (f"<b>{escape_html(subj)}</b>\n"
+    #         f"From: {escape_html(frm)}\n"
+    #         f"Date: {escape_html(date)}\n"
+    #         f"\n"
+    #         f"{escape_html(preview_text)}")
+    escaped_date = escape_html(date)
+    parsed_date = parse_email_date(escaped_date)
+    if datetime.now(timezone.utc) - parsed_date > timedelta(days=5):
+        return
     text = (f"<b>{escape_html(subj)}</b>\n"
-            f"From: {escape_html(frm)}\n"
-            f"Date: {escape_html(date)}\n"
+            f"From: {re.match(r"<(.*)>", escape_html(frm))}\n"
+            f"Date: {parsed_date}\n"
             f"\n"
             f"{escape_html(preview_text)}")
     return text
@@ -87,3 +98,11 @@ def make_telegram_text(msg_obj: Message) -> str:
 
 def escape_html(s: str) -> str:
     return html.escape(s)
+
+
+def parse_email_date(date_string: str) -> datetime:
+    try:
+        split_date = date_string.split("(")[0].strip()
+        return datetime.strptime(split_date, "%a, %d %b %Y %H:%M:%S %z")
+    except ValueError as e:
+        print(date_string, e)
