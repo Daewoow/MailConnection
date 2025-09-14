@@ -1,0 +1,5 @@
+services:
+  mail_connection:
+    build: .
+    ports:
+      - 8000:8000
