@@ -5,6 +5,8 @@ from fastapi.responses import FileResponse
 from utils.config_utils import *
 from utils.imap_utils import *
 
+
+# вау какой крутой код))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("imap-telegram-forwarder:main")
 
